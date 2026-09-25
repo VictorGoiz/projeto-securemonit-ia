@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SECURITY DEVS // Condominium Defense & Threat Monitoring SOC</title>
+  
+  <!-- Favicon / Ícone na Aba do Navegador -->
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="shortcut icon" type="image/png" href="img/logo.png">
+  <link rel="apple-touch-icon" href="img/logo.png">
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Leaflet CSS para Geolocalização e Mapa Tático -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <link rel="stylesheet" href="monitoramento.css">
+</head>
+<body class="enterprise-soc">
+
+  <!-- Top Security Header Bar -->
+  <header class="soc-header">
+    <div class="soc-brand">
+      <div class="brand-icon">
+        <img src="img/logo.png" alt="Security Devs" class="brand-logo-img">
+      </div>
+      <div class="brand-info">
+        <div class="brand-title-row">
+          <h1>SECURITY DEVS</h1>
+          <span class="badge-soc">ENTERPRISE SOC</span>
+        </div>
+        <p class="brand-subtitle">Monitoramento Inteligente & Triagem de Ameaças em Condomínios</p>
+      </div>
+    </div>
+
+    <!-- Header Telemetry & Status -->
+    <div class="header-telemetry">
+      <div class="telemetry-pill cycle-pill" id="cycleStatusPill" title="Ciclo automático de testes a cada 5s e restauração a cada 1 minuto">
+        <span class="pulsing-cyan-dot"></span>
+        <span class="cycle-info">Ciclo 5s: <strong id="cycleStageText">Standby</strong></span>
+        <span class="cycle-sep">•</span>
+        <span class="cycle-reset">Reset: <strong id="cycleCountdownText">60s</strong></span>
+      </div>
+
+      <div class="telemetry-pill threat-pill" id="globalThreatPill">
+        <i class="fa-solid fa-shield-check"></i>
+        <span id="globalThreatText">Perímetro Seguro</span>
+      </div>
+
+      <div class="telemetry-pill time-pill">
+        <i class="fa-regular fa-clock"></i>
+        <span id="liveClock">00:00:00</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Clean KPI Metric Cards -->
+  <section class="kpi-section">
+    <div class="kpi-card">
+      
+      <div class="kpi-info">
+        <span class="kpi-value" id="valAssertiveness">98.6%</span>
+        <span class="kpi-label">Assertividade da IA</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      
+      <div class="kpi-info">
+        <span class="kpi-value" id="valFalsePositives">142</span>
+        <span class="kpi-label">Falsos Alarmes Barrados</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      
+      <div class="kpi-info">
+        <span class="kpi-value" id="valRealThreats">5</span>
+        <span class="kpi-label">Ameaças Reais Bloqueadas</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      
+      <div class="kpi-info">
+        <span class="kpi-value" id="valActiveCameras">6 / 6</span>
+        <span class="kpi-label">Câmeras Operacionais</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Streamlined Controls & Filter Bar -->
+  <div class="controls-toolbar">
+    <div class="toolbar-left">
+      <div class="segmented-control">
+        <button class="seg-btn active" data-filter="all">Todas as Câmeras (6)</button>
+        <button class="seg-btn" data-filter="threats">🚨 Perigos Reais</button>
+        <button class="seg-btn" data-filter="false_positives">🐾 Falsos Positivos</button>
+      </div>
+    </div>
+
+    <div class="toolbar-right">
+      <div class="sim-actions-group">
+        <span class="sim-label">Simular:</span>
+        <button class="action-chip chip-cat" id="btnSimCat" title="Simular detecção de gato">
+          <i class="fa-solid fa-cat"></i> Gato
+        </button>
+        <button class="action-chip chip-leaf" id="btnSimLeaf" title="Simular vento balançando folhagens">
+          <i class="fa-solid fa-wind"></i> Folha
+        </button>
+        <button class="action-chip chip-threat" id="btnSimIntruder" title="Simular invasão real">
+          <i class="fa-solid fa-person-running"></i> Invasor
+        </button>
+      </div>
+
+      <div class="cycle-actions-group">
+        <button class="action-btn" id="btnToggleCycle" title="Pausar ou continuar o ciclo automático de 5s">
+          <i class="fa-solid fa-pause"></i> Pausar Ciclo
+        </button>
+        <button class="action-btn" id="btnForceRestore" title="Restaurar todas as câmeras para o estado base">
+          <i class="fa-solid fa-rotate-left"></i> Restaurar
+        </button>
+        <button class="action-btn action-map-btn" id="btnToggleMap" title="Exibir mapa geolocalizado do condomínio">
+          <i class="fa-solid fa-map"></i> Radar Tático
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tactical Map Section: Visão Geral das Câmeras em São Paulo (SP) -->
+  <section class="tactical-map-container" id="tacticalMapSection">
+    <div class="map-header">
+      <div class="map-title-wrap">
+        <div class="map-main-title">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <span>MAPA GERAL DE GEOLOCALIZAÇÃO DAS CÂMERAS • SÃO PAULO, SP</span>
+        </div>
+        <span class="map-sp-tag"><i class="fa-solid fa-location-dot"></i> Condomínio Jardins • São Paulo - SP</span>
+      </div>
+
+      <div class="map-legend">
+        <span class="legend-badge leg-normal"><span class="dot"></span> Online</span>
+        <span class="legend-badge leg-filtered"><span class="dot"></span> Falso Alarme (Gato/Folha)</span>
+        <span class="legend-badge leg-critical"><span class="dot"></span> Ameaça Real (Invasor)</span>
+      </div>
+    </div>
+
+    <!-- Quick Jump Camera Selector across SP Condominium -->
+    <div class="map-camera-bar">
+      <span class="cam-bar-label"><i class="fa-solid fa-crosshairs"></i> Focar Câmera em SP:</span>
+      <div class="cam-jump-chips">
+        <button class="cam-chip" onclick="focusCameraOnMap('cam-01')">CAM-01 Muro Norte</button>
+        <button class="cam-chip" onclick="focusCameraOnMap('cam-02')">CAM-02 Portaria</button>
+        <button class="cam-chip" onclick="focusCameraOnMap('cam-03')">CAM-03 Garagem G1</button>
+        <button class="cam-chip" onclick="focusCameraOnMap('cam-04')">CAM-04 Piscina</button>
+        <button class="cam-chip" onclick="focusCameraOnMap('cam-05')">CAM-05 Gerador</button>
+        <button class="cam-chip" onclick="focusCameraOnMap('cam-06')">CAM-06 Bosque Sul</button>
+      </div>
+    </div>
+
+    <div id="condoMap" class="condo-leaflet-map"></div>
+
+    <div class="map-footer-coords">
+      <div class="footer-coord-item">
+        <i class="fa-solid fa-compass"></i>
+        <span><strong>Posição Central SP:</strong> Lat -23.562100, Lng -46.655600 (Jardins / Bela Vista, São Paulo - SP)</span>
+      </div>
+      <div class="footer-coord-item">
+        <i class="fa-solid fa-shield"></i>
+        <span><strong>Cobertura:</strong> 6 Setores Perimetrais Monitorados com Triagem IA em Tempo Real</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cameras Grid -->
+  <main class="cameras-wrapper">
+    <div class="section-header">
+      <div class="section-title">
+        <h2><i class="fa-solid fa-camera"></i> CÂMERAS DO PERÍMETRO</h2>
+        <span class="sync-status" id="refreshTimer"><i class="fa-solid fa-check"></i> Sincronizado</span>
+      </div>
+    </div>
+
+    <div class="cameras-grid" id="camerasContainer">
+      <!-- Cards de câmeras gerados dinamicamente com design profissional -->
+    </div>
+  </main>
+
+  <!-- Recent Intelligence Audit Feed -->
+  <section class="intel-audit-section">
+    <div class="audit-header">
+      <h3><i class="fa-solid fa-list-check"></i> HISTÓRICO DE TRIAGEM & ASSERTIVIDADE</h3>
+      <span class="audit-badge">Tempo Real</span>
+    </div>
+    <div class="audit-list" id="auditList">
+      <!-- Preenchido dinamicamente -->
+    </div>
+  </section>
+
+  <!-- Floating Chatbot Widget ("Security Devs AI") -->
+  <div class="floating-chatbot" id="floatingChatbot">
+    <!-- Floating Trigger Bubble Button -->
+    <button class="chatbot-trigger" id="chatbotTrigger" aria-label="Abrir Security Devs AI">
+      <div class="trigger-icon-wrap">
+        <i class="fa-solid fa-robot"></i>
+      </div>
+      <span class="chatbot-trigger-label">ASSISTENTE</span>
+      <span class="chatbot-badge-notification" id="chatNotificationBadge">1</span>
+    </button>
+
+    <!-- Chatbot Window Panel -->
+    <div class="chatbot-window" id="chatbotWindow">
+      <!-- Window Header -->
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <div class="chat-bot-avatar">
+            <img src="img/logo.png" alt="Security Devs" class="chat-logo-thumb">
+          </div>
+          <div>
+            <h4>Security Devs AI</h4>
+            <p>Guardião Condominial & Triagem de Ameaças</p>
+          </div>
+        </div>
+        <div class="chat-header-actions">
+          <button class="chat-action-btn" id="btnMinimizeChat" title="Minimizar"><i class="fa-solid fa-minus"></i></button>
+        </div>
+      </div>
+
+      <!-- Quick Action Prompt Chips -->
+      <div class="chat-quick-chips">
+        <button class="chip-btn" data-question="O alarme do muro norte foi um gato ou um perigo real?">
+          🐾 Gato vs Invasor?
+        </button>
+        <button class="chip-btn" data-question="Por que a câmera da garagem não acionou sirene?">
+          🚗 Garagem G1
+        </button>
+        <button class="chip-btn" data-question="Como o sistema descarta folhas e vento?">
+          🍃 Filtro de Folhas
+        </button>
+        <button class="chip-btn" data-question="Qual a taxa de assertividade e falsos alarmes hoje?">
+          📊 Estatísticas
+        </button>
+      </div>
+
+      <!-- Messages Body -->
+      <div class="chat-messages" id="chatMessages">
+        <div class="message-row bot-row">
+          <div class="message-bubble bot-bubble">
+            <div class="bubble-header">
+              <span class="bot-name">Security Devs AI</span>
+              <span class="bubble-time">Agora</span>
+            </div>
+            <p>Olá! Sou o <strong>Security Devs AI</strong>. Monitoro as câmeras perimetrais e garanto que os moradores recebam alertas <strong>somente quando houver perigo real</strong>, descartando gatos, vento e sombras com alta assertividade.</p>
+            <p class="bubble-footer-note">Ciclo de alertas ativo (5s) com restauração a cada 1 minuto.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input Form -->
+      <form class="chat-input-form" id="chatForm">
+        <div class="input-wrapper">
+          <input 
+            type="text" 
+            id="chatInput" 
+            placeholder="Pergunte sobre qualquer câmera ou alerta..." 
+            autocomplete="off" 
+            required
+          />
+          <button type="submit" class="send-btn" id="btnSend" aria-label="Enviar">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Frontend Controller Script -->
+  <script src="monitoramento.js"></script>
+</body>
+</html>
