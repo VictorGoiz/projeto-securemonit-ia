@@ -10,7 +10,16 @@
  * - Chatbot flutuante ("Security Devs AI") com respostas táticas
  */
 
-const API_BASE_URL = 'http://localhost:3000/api';
+// Configuração dinâmica da API: suporta window.__API_BASE_URL__, query param ?apiUrl=, localStorage ou localhost
+const API_BASE_URL = 
+  window.__API_BASE_URL__ ||
+  localStorage.getItem('API_BASE_URL') ||
+  new URLSearchParams(window.location.search).get('apiUrl') ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000/api'
+    : 'https://sistema-seguranca-monit-backend.onrender.com/api');
+
+console.log('[SOC Telemetria] Endpoint de API ativo:', API_BASE_URL);
 
 // Catálogo de Câmeras Base
 const INITIAL_CAMERAS = [

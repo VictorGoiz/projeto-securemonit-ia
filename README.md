@@ -36,6 +36,7 @@ Sistemas tradicionais de Circuito Fechado de TV (CFTV) e sensores infravermelhos
 - [Estrutura de Pastas](#-estrutura-de-pastas)
 - [Documentação dos Endpoints (API REST)](#-documentação-dos-endpoints-api-rest)
 - [Como Instalar e Executar](#-como-instalar-e-executar)
+- [Deploy no Render (Backend & Frontend)](#-deploy-no-render-backend--frontend-separados)
 - [Ciclos de Teste e Simulações](#-ciclos-de-teste-e-simulações)
 - [Papel da IA Generativa e Heurística Resiliente](#-papel-da-ia-generativa-e-heurística-resiliente)
 - [Licença e Créditos](#-licença-e-créditos)
@@ -295,6 +296,47 @@ O backend disponibiliza endpoints organizados sob o prefixo `/api`:
    - Use uma extensão como o **Live Server** no VS Code; ou
    - Execute um servidor estático simples com `npx serve frontend`.
 3. O painel SOC carregará automaticamente os dados da API em `http://localhost:3000/api` e iniciará o radar e o ciclo de monitoramento.
+
+---
+
+## ☁️ Deploy no Render (Backend & Frontend Separados)
+
+O projeto está totalmente preparado para hospedagem em serviços separados no **[Render](https://render.com/)**:
+
+### 1. Deploy do Backend (Web Service)
+1. No painel do Render, crie um novo **Web Service** conectado ao seu repositório GitHub.
+2. Defina as configurações:
+   - **Root Directory:** `backend/src`
+   - **Environment:** `Node`
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+3. Em **Environment Variables**, adicione:
+   - `NODE_ENV` = `production`
+   - `OPENAI_API_KEY` = *(opcional, se quiser usar a OpenAI oficial)*
+   - `OPENAI_MODEL` = `gpt-4o-mini`
+   *(A porta `PORT` é injetada automaticamente pelo Render e escuta em `0.0.0.0`)*.
+4. Após o deploy, copie a URL gerada (exemplo: `https://meu-backend.onrender.com`).
+
+### 2. Logs da API no Render (Telemetria em Tempo Real)
+O backend possui um middleware de telemetria HTTP (`requestLogger`) formatado para streaming no Render:
+```text
+[BOOT] 2026-09-25T22:17:50.000Z | 🚀 Escutando em: http://0.0.0.0:10000
+[LOG-HTTP] 2026-09-25T22:17:59.219Z | 🟢 GET    /api/health               | Status: 200 | 8ms | IP: 187.x.x.x
+[LOG-HTTP] 2026-09-25T22:17:59.235Z | 🟢 GET    /api/cameras              | Status: 200 | 1ms | IP: 187.x.x.x
+[LOG-HTTP] 2026-09-25T22:17:59.239Z | 🟢 GET    /api/alerts/metrics       | Status: 200 | 1ms | IP: 187.x.x.x
+[WARN-404] 2026-09-25T22:17:59.242Z | Rota não encontrada: GET /api/inexistente
+[LOG-HTTP] 2026-09-25T22:17:59.243Z | 🟡 GET    /api/inexistente          | Status: 404 | 2ms | IP: 187.x.x.x
+```
+- 🟢 Status 2xx (Sucesso) | 🔵 Status 3xx (Redirecionamento) | 🟡 Status 4xx (Aviso / Não Encontrado) | 🔴 Status 5xx (Erro)
+
+### 3. Deploy do Frontend (Static Site)
+1. No painel do Render, crie um **Static Site**.
+2. Defina as configurações:
+   - **Root Directory:** `frontend`
+   - **Publish Directory:** `.` (ou deixe em branco para publicar a pasta raiz do frontend)
+3. Para conectar o frontend ao backend do Render:
+   - **Opção A (URL Query):** Abra seu site estático adicionando `?apiUrl=https://meu-backend.onrender.com/api`.
+   - **Opção B (Automática):** No arquivo `frontend/monitoramento.js`, substitua o fallback da URL padrão pelo endereço do seu Web Service do Render.
 
 ---
 
