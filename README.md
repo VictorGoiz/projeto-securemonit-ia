@@ -315,7 +315,7 @@ O projeto está totalmente preparado para hospedagem em serviços separados no *
    - `OPENAI_API_KEY` = *(opcional, se quiser usar a OpenAI oficial)*
    - `OPENAI_MODEL` = `gpt-4o-mini`
    *(A porta `PORT` é injetada automaticamente pelo Render e escuta em `0.0.0.0`)*.
-4. Após o deploy, copie a URL gerada (exemplo: `https://meu-backend.onrender.com`).
+4. **URL de Produção da API:** `https://projeto-securemonit-ia.onrender.com`
 
 ### 2. Logs da API no Render (Telemetria em Tempo Real)
 O backend possui um middleware de telemetria HTTP (`requestLogger`) formatado para streaming no Render:
@@ -334,9 +334,9 @@ O backend possui um middleware de telemetria HTTP (`requestLogger`) formatado pa
 2. Defina as configurações:
    - **Root Directory:** `frontend`
    - **Publish Directory:** `.` (ou deixe em branco para publicar a pasta raiz do frontend)
-3. Para conectar o frontend ao backend do Render:
-   - **Opção A (URL Query):** Abra seu site estático adicionando `?apiUrl=https://meu-backend.onrender.com/api`.
-   - **Opção B (Automática):** No arquivo `frontend/monitoramento.js`, substitua o fallback da URL padrão pelo endereço do seu Web Service do Render.
+3. O frontend já está configurado no arquivo `frontend/monitoramento.js` com a URL da API em produção:
+   - `https://projeto-securemonit-ia.onrender.com/api`
+   - Se estiver rodando localmente (`localhost`), ele continuará apontando para `http://localhost:3000/api` de forma automática!
 
 ---
 
