@@ -1,8 +1,9 @@
 import { openaiClient } from '../config/openai.js';
 import { config } from '../config/env.js';
-import { alertService } from './alertService.js';
-import { cameraService } from './cameraService.js';
+import { getAlertMetrics, getAllAlerts } from './alertService.js';
+import { getAllCameras } from './cameraService.js';
 
+// Prompt de sistema que define o comportamento do assistente de segurança
 const SYSTEM_PROMPT = `
 Você é o "Security Devs AI", um agente inteligente e amigável especializado em segurança física condominial e monitoramento de câmeras de alta assertividade.
 Seu objetivo principal é triar eventos e explicar com clareza aos moradores e operadores do condomínio a diferença entre:
@@ -16,23 +17,28 @@ DIRETRIZES DE COMUNICAÇÃO:
 - Forneça respostas concisas, estruturadas com tópicos e com tom moderno de tecnologia de segurança inteligente.
 `;
 
-export const aiService = {
-  chat: async (userMessage, chatHistory = []) => {
-    // Coleta contexto atual do sistema para alimentar a IA
-    const metrics = alertService.getMetrics();
-    const recentAlerts = alertService.getAll().slice(0, 3);
-    const cameras = cameraService.getAll();
+// Processa a mensagem do usuário via OpenAI ou motor heurístico local
+export async function chat(userMessage, chatHistory = []) {
+  // 1. Obtém os dados operacionais mais recentes de forma assíncrona
+  const [metrics, allAlerts, cameras] = await Promise.all([
+    getAlertMetrics(),
+    getAllAlerts(),
+    getAllCameras()
+  ]);
 
+    const recentAlerts = allAlerts.slice(0, 3);
+
+    // 2. Monta o contexto operacional em tempo real
     const contextSnippet = `
-Contexto do condomínio em tempo real:
-- Status Sentinela AI: Online (${metrics.assertivenessRate} de assertividade).
-- Falsos alarmes bloqueados no turno: ${metrics.falsePositivesFiltered} (gatos, vento, folhagens).
-- Câmeras ativas: ${cameras.length}.
-- Alertas recentes:
-${recentAlerts.map((a) => `  * [${a.category}] na câmera ${a.cameraName} (${a.confidenceScore}% de confiança) - ${a.targetIdentified}`).join('\n')}
-`;
+      Contexto do condomínio em tempo real:
+      - Status Sentinela AI: Online (${metrics.assertivenessRate} de assertividade).
+      - Falsos alarmes bloqueados no turno: ${metrics.falsePositivesFiltered} (gatos, vento, folhagens).
+      - Câmeras ativas: ${cameras.length}.
+      - Alertas recentes:
+      ${recentAlerts.map((a) => `  * [${a.category}] na câmera ${a.cameraName} (${a.confidenceScore}% de confiança) - ${a.targetIdentified}`).join('\n')}
+      `;
 
-    // Se houver cliente OpenAI configurado, faz a chamada à API oficial
+    // 3. Se houver chave e cliente da OpenAI configurados, faz a chamada na API
     if (openaiClient) {
       try {
         const messages = [
@@ -65,7 +71,7 @@ ${recentAlerts.map((a) => `  * [${a.category}] na câmera ${a.cameraName} (${a.c
       }
     }
 
-    // Fallback inteligente caso a chave OpenAI não esteja definida ou falhe
+    // 4. Fallback local inteligente caso a OpenAI não esteja configurada ou falhe
     const localReply = generateLocalSecurityResponse(userMessage, recentAlerts, metrics);
     return {
       reply: localReply,
@@ -73,94 +79,116 @@ ${recentAlerts.map((a) => `  * [${a.category}] na câmera ${a.cameraName} (${a.c
       model: 'Sentinela-LocalEngine-v2',
       timestamp: new Date().toISOString()
     };
-  },
+}
 
-  analyzeThreat: async (detectionDetails) => {
-    const { objectType, zone, hour, movementSpeed } = detectionDetails;
-    
-    // Análise de assertividade
-    const isAnimal = ['gato', 'cachorro', 'passaro', 'felino'].some((kw) => 
-      (objectType || '').toLowerCase().includes(kw)
-    );
-    const isNature = ['folha', 'vento', 'galho', 'arvore', 'sombra'].some((kw) => 
-      (objectType || '').toLowerCase().includes(kw)
-    );
-    const isHuman = ['pessoa', 'homem', 'invasor', 'individuo', 'silhueta'].some((kw) => 
-      (objectType || '').toLowerCase().includes(kw)
-    );
+// Analisa semanticamente um evento detectado por sensor ou câmera
+export async function analyzeThreat(detectionDetails) {
+  const { objectType = '', zone = 'Perímetro Geral' } = detectionDetails;
+  const term = objectType.toLowerCase();
 
-    let classification = 'SUSPICIOUS_UNDER_REVIEW';
-    let isRealThreat = false;
-    let confidence = 88.0;
-    let recommendation = 'Manter em observação automática sem disparar sirene.';
+  // Verificação de categorias simples
+  const isAnimal = ['gato', 'cachorro', 'passaro', 'felino', 'ave'].some((kw) => term.includes(kw));
+  const isNature = ['folha', 'vento', 'galho', 'arvore', 'sombra', 'luz'].some((kw) => term.includes(kw));
+  const isHuman = ['pessoa', 'homem', 'invasor', 'individuo', 'silhueta', 'ladrao'].some((kw) => term.includes(kw));
 
-    if (isHuman) {
-      classification = 'CRITICAL_INTRUDER';
-      isRealThreat = true;
-      confidence = 98.4;
-      recommendation = 'ACIONAMENTO IMEDIATO: Notificar guarita, travar clausuras e alertar moradores da prumada.';
-    } else if (isAnimal) {
-      classification = 'FALSE_POSITIVE_ANIMAL';
-      isRealThreat = false;
-      confidence = 95.8;
-      recommendation = 'FILTRADO COM SUCESSO: Trata-se de pequeno animal. Disparo cancelado para evitar falso alarme.';
-    } else if (isNature) {
-      classification = 'FALSE_POSITIVE_ENVIRONMENT';
-      isRealThreat = false;
-      confidence = 93.2;
-      recommendation = 'FILTRADO COM SUCESSO: Movimento ambiental por vento/folhas. Nenhuma ação necessária.';
-    }
-
+  if (isHuman) {
     return {
       objectEvaluated: objectType,
-      classification,
-      isRealThreat,
-      confidenceScore: confidence,
+      classification: 'CRITICAL_INTRUDER',
+      isRealThreat: true,
+      confidenceScore: 98.4,
       zone,
-      recommendation,
+      recommendation: 'ACIONAMENTO IMEDIATO: Notificar guarita, travar clausuras e alertar moradores.',
       evaluatedAt: new Date().toISOString()
     };
   }
+
+  if (isAnimal) {
+    return {
+      objectEvaluated: objectType,
+      classification: 'FALSE_POSITIVE_ANIMAL',
+      isRealThreat: false,
+      confidenceScore: 95.8,
+      zone,
+      recommendation: 'FILTRADO COM SUCESSO: Animal doméstico identificado. Alarme silenciado para evitar ruído.',
+      evaluatedAt: new Date().toISOString()
+    };
+  }
+
+  if (isNature) {
+    return {
+      objectEvaluated: objectType,
+      classification: 'FALSE_POSITIVE_ENVIRONMENT',
+      isRealThreat: false,
+      confidenceScore: 93.2,
+      zone,
+      recommendation: 'FILTRADO COM SUCESSO: Movimento ambiental por vento/folhagens. Nenhuma ação necessária.',
+      evaluatedAt: new Date().toISOString()
+    };
+  }
+
+  // Caso padrão sob revisão
+  return {
+    objectEvaluated: objectType,
+    classification: 'SUSPICIOUS_UNDER_REVIEW',
+    isRealThreat: false,
+    confidenceScore: 88.0,
+    zone,
+    recommendation: 'Manter em observação automática sem acionamento sonoro de sirene.',
+    evaluatedAt: new Date().toISOString()
+  };
+}
+
+export const aiService = {
+  chat,
+  analyzeThreat
 };
 
+// Gera respostas contextuais simples e explicativas em português
 function generateLocalSecurityResponse(query, recentAlerts, metrics) {
   const q = query.toLowerCase();
 
+  // Cenário de animais
   if (q.includes('gato') || q.includes('animal') || q.includes('bicho')) {
     return `🐾 **Análise Security Devs AI - Detecção de Felino:**
-Identificamos recentemente a presença de um gato sobre o topo do muro perimetral.
+Identificamos a presença de um gato sobre o topo do muro perimetral.
 - **Assinatura Biométrica:** Massa aproximada de 3.8kg, locomoção quadrúpede rasteira.
-- **Decisão do Sistema:** **Falso positivo confirmado**. O alarme e os avisos aos moradores foram **bloqueados automaticamente**, prevenindo pânico desnecessário e mantendo o silêncio no condomínio.`;
+- **Decisão do Sistema:** **Falso positivo confirmado**. O alarme e os avisos aos moradores foram **bloqueados automaticamente**, mantendo o silêncio e o conforto no condomínio.`;
   }
 
-  if (q.includes('folha') || q.includes('vento') || q.includes('árvore') || q.includes('galho')) {
+  // Cenário ambiental (folhas, vento, sombras)
+  if (q.includes('folha') || q.includes('vento') || q.includes('árvore') || q.includes('galho') || q.includes('sombra')) {
     return `🍃 **Análise Security Devs AI - Perturbação Ambiental:**
-As oscilações térmicas registradas no corredor técnico foram causadas por rajadas de vento movimentando folhas de Ficus benjamina.
-- **Filtro Aplicado:** Assinatura de calor ambiente sem presença bípede.
+As oscilações registradas no corredor técnico foram causadas por rajadas de vento movimentando a vegetação.
+- **Filtro Aplicado:** Assinatura térmica ambiente sem presença biológica humana.
 - **Resultado:** Evento silenciado e arquivado nos logs de auditoria.`;
   }
 
-  if (q.includes('invasor') || q.includes('perigo') || q.includes('ladrão') || q.includes('muro') || q.includes('assalto')) {
+  // Cenário de invasão ou perigo real
+  if (q.includes('invasor') || q.includes('perigo') || q.includes('ladrão') || q.includes('assalto')) {
     return `🚨 **Protocolo de Segurança Ativo - Invasão Real:**
-O Security Devs AI monitora continuamente as câmeras perimetrais (CAM-01 Muro Norte e CAM-06 Bosque Sul).
-- Em caso de confirmação de silhueta humana transpondo o muro com ferramentas, o sistema:
-  1. Notifica imediatamente o posto de comando da guarita.
-  2. Dispara sinal luminoso silencioso na central.
-  3. Envia push de alta prioridade aos moradores alertando para não descerem às áreas externas.
+O sistema monitora continuamente as câmeras perimetrais do condomínio.
+- Em caso de confirmação de silhueta humana transpondo muros:
+  1. Notifica imediatamente a equipe de segurança da guarita.
+  2. Dispara aviso tático silencioso na central de comando.
+  3. Envia push de alta prioridade aos moradores para permanecerem em segurança.
 - Taxa atual de assertividade: **${metrics.assertivenessRate}** com ${metrics.falsePositivesFiltered} falsos alarmes evitados.`;
   }
 
+  // Cenário de status geral
   if (q.includes('status') || q.includes('como está') || q.includes('câmera') || q.includes('câmeras')) {
+    const ultimoAlerta = recentAlerts[0]?.category || 'Nenhuma anormalidade no momento';
     return `🛡️ **Status Geral do Sistema Security Devs:**
 - **Estado Operacional:** Totalmente ativo e calibrado.
-- **Falsos Positivos Filtrados no Turno:** ${metrics.falsePositivesFiltered} (evitou perturbar os moradores).
-- **Último Alerta Triado:** ${recentAlerts[0]?.category || 'Nenhuma anormalidade no momento'}.
-- **Câmeras em Ronda Digital:** 6 zonas perimetrais cobertas em 4K.`;
+- **Falsos Alarmes Barrados no Turno:** ${metrics.falsePositivesFiltered}
+- **Último Alerta Triado:** ${ultimoAlerta}.
+- **Câmeras em Ronda Digital:** 6 zonas perimetrais cobertas em alta definição.`;
   }
 
+  // Resposta padrão explicativa
   return `🤖 **Security Devs AI - Central de Monitoramento:**
-Olá! Estou monitorando as 6 câmeras do condomínio em tempo real.
-Meu papel é garantir que você e os moradores sejam alertados **somente quando houver perigo real**, filtrando gatos, folhas e sombras com mais de **${metrics.assertivenessRate} de assertividade**.
+Olá! Estou monitorando as câmeras do condomínio em tempo real.
+Meu papel é garantir que alertas sejam disparados **somente quando houver perigo real**, filtrando gatos, folhas e sombras com **${metrics.assertivenessRate} de assertividade**.
 
 Você pode me perguntar:
 - *"O movimento no muro norte foi um gato ou invasor?"*

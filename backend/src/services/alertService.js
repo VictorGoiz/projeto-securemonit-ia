@@ -1,4 +1,5 @@
-import { cameraService } from './cameraService.js';
+import { getCameraById, updateCameraStatus } from './cameraService.js';
+
 
 // Base inicial com histórico de alertas e triagens de assertividade
 let alerts = [
@@ -72,127 +73,157 @@ let alerts = [
   }
 ];
 
-export const alertService = {
-  getAll: (filter = 'all') => {
-    if (filter === 'threats') {
-      return alerts.filter((a) => a.isRealThreat);
-    }
-    if (filter === 'false_positives') {
-      return alerts.filter((a) => !a.isRealThreat && a.classification.startsWith('FALSE_POSITIVE'));
-    }
-    return alerts;
-  },
-
-  getById: (id) => alerts.find((a) => a.id === id),
-
-  getMetrics: () => {
-    const total = alerts.length;
-    const falsePositives = alerts.filter((a) => !a.isRealThreat).length;
-    const realThreats = alerts.filter((a) => a.isRealThreat).length;
-    const assertivenessRate = total > 0 ? ((falsePositives + realThreats) / total * 98.6).toFixed(1) : '99.2';
-
-    return {
-      totalDetections: total + 142, // simulando histórico acumulado no turno
-      falsePositivesFiltered: falsePositives + 138,
-      realThreatsIdentified: realThreats + 4,
-      assertivenessRate: `${assertivenessRate}%`,
-      systemStatus: 'SENTINELA_AI_ONLINE',
-      residentsProtected: 184
-    };
-  },
-
-  simulateDetection: (type = 'random') => {
-    const simulationPool = [
-      {
-        type: 'gato',
-        cameraId: 'cam-01',
-        classification: 'FALSE_POSITIVE_ANIMAL',
-        category: 'FALSO POSITIVO (GATO NO MURO)',
-        isRealThreat: false,
-        notifiedResidents: false,
-        confidenceScore: 96.2,
-        targetIdentified: 'Gato siamês caminhando sobre a viga do muro leste',
-        assertivenessReasoning: 'IA classificou padrão de locomoção quadrúpede de 3.8kg. Não há deformação da cerca perimetral. Alarme silenciado para evitar despertar os moradores.',
-        severity: 'info'
-      },
-      {
-        type: 'folha',
-        cameraId: 'cam-05',
-        classification: 'FALSE_POSITIVE_ENVIRONMENT',
-        category: 'FALSO POSITIVO (FOLHAS/VENTO)',
-        isRealThreat: false,
-        notifiedResidents: false,
-        confidenceScore: 93.5,
-        targetIdentified: 'Acúmulo de folhas secas em redemoinho de vento',
-        assertivenessReasoning: 'Dispersão aerodinâmica inconsistente com massa biológica. Algoritmo de filtragem ambiental descartou invasão.',
-        severity: 'info'
-      },
-      {
-        type: 'invasor',
-        cameraId: 'cam-01',
-        classification: 'CRITICAL_INTRUDER',
-        category: 'PERIGO REAL (INVASOR CONFIRMADO)',
-        isRealThreat: true,
-        notifiedResidents: true,
-        confidenceScore: 98.9,
-        targetIdentified: 'Homem adulto encapuzado pulando o gradil perimetral',
-        assertivenessReasoning: 'Detecção de silhueta bípede com postura agressiva e intrusão na zona virtual de restrição. Notificação imediata aos moradores e despacho para a central de monitoramento.',
-        severity: 'critical'
-      },
-      {
-        type: 'entregador',
-        cameraId: 'cam-02',
-        classification: 'AUTHORIZED_ACCESS',
-        category: 'VISITANTE / ENTREGADOR NA CALÇADA',
-        isRealThreat: false,
-        notifiedResidents: false,
-        confidenceScore: 97.1,
-        targetIdentified: 'Entregador identificado na calçada aguardando porteiro',
-        assertivenessReasoning: 'Permanência em área pública externa sem tentativa de transpor a clausura. Monitoramento passivo ativado sem necessidade de alarme.',
-        severity: 'normal'
-      }
-    ];
-
-    let chosen;
-    if (type && type !== 'random') {
-      chosen = simulationPool.find((item) => item.type === type) || simulationPool[0];
-    } else {
-      chosen = simulationPool[Math.floor(Math.random() * simulationPool.length)];
-    }
-
-    const camera = cameraService.getById(chosen.cameraId);
-    const newAlert = {
-      id: `alt-${Date.now()}`,
-      cameraId: chosen.cameraId,
-      cameraCode: camera ? camera.code : 'CAM-01',
-      cameraName: camera ? camera.name : 'Câmera Perimetral',
-      timestamp: new Date().toISOString(),
-      classification: chosen.classification,
-      category: chosen.category,
-      isRealThreat: chosen.isRealThreat,
-      notifiedResidents: chosen.notifiedResidents,
-      confidenceScore: chosen.confidenceScore,
-      targetIdentified: chosen.targetIdentified,
-      assertivenessReasoning: chosen.assertivenessReasoning,
-      locationCoordinates: camera ? camera.coordinates : { lat: -23.561684, lng: -46.656139 },
-      status: chosen.isRealThreat ? 'active_alert' : 'filtered_auto',
-      severity: chosen.severity
-    };
-
-    alerts.unshift(newAlert);
-    if (alerts.length > 30) alerts.pop();
-
-    if (camera) {
-      cameraService.updateStatus(
-        camera.id,
-        chosen.isRealThreat ? 'alert' : 'online',
-        chosen.isRealThreat ? 'critical' : 'normal',
-        chosen.targetIdentified
-      );
-    }
-
-    return newAlert;
+// Retorna a lista de alertas com base no filtro ('all', 'threats', 'false_positives')
+export async function getAllAlerts(filter = 'all') {
+  if (filter === 'threats') {
+    return alerts.filter((alert) => alert.isRealThreat);
   }
+  if (filter === 'false_positives') {
+    return alerts.filter((alert) => !alert.isRealThreat && alert.classification.startsWith('FALSE_POSITIVE'));
+  }
+  return alerts;
+}
+
+// Busca um alerta específico pelo seu ID
+export async function getAlertById(id) {
+  const alert = alerts.find((a) => a.id === id);
+  return alert || null;
+}
+
+// Calcula e retorna as métricas de assertividade do sistema em tempo real
+export async function getAlertMetrics() {
+  const total = alerts.length;
+  const falsePositives = alerts.filter((a) => !a.isRealThreat).length;
+  const realThreats = alerts.filter((a) => a.isRealThreat).length;
+  
+  // Cálculo da taxa de assertividade
+  const assertivenessRate = total > 0 
+    ? ((falsePositives + realThreats) / total * 98.6).toFixed(1) 
+    : '99.2';
+
+  return {
+    totalDetections: total + 142, // Acumulado simulado do turno
+    falsePositivesFiltered: falsePositives + 138,
+    realThreatsIdentified: realThreats + 4,
+    assertivenessRate: `${assertivenessRate}%`,
+    systemStatus: 'SENTINELA_AI_ONLINE',
+    residentsProtected: 184
+  };
+}
+
+// Simula a detecção de um evento de segurança (gato, folha, invasor, etc.)
+export async function simulateDetection(type = 'random') {
+  const simulationPool = [
+    {
+      type: 'gato',
+      cameraId: 'cam-01',
+      classification: 'FALSE_POSITIVE_ANIMAL',
+      category: 'FALSO POSITIVO (GATO NO MURO)',
+      isRealThreat: false,
+      notifiedResidents: false,
+      confidenceScore: 96.2,
+      targetIdentified: 'Gato siamês caminhando sobre a viga do muro leste',
+      assertivenessReasoning: 'IA classificou padrão de locomoção quadrúpede de 3.8kg. Sem deformação de cerca. Alarme silenciado para evitar perturbação aos moradores.',
+      severity: 'info'
+    },
+    {
+      type: 'folha',
+      cameraId: 'cam-05',
+      classification: 'FALSE_POSITIVE_ENVIRONMENT',
+      category: 'FALSO POSITIVO (FOLHAS/VENTO)',
+      isRealThreat: false,
+      notifiedResidents: false,
+      confidenceScore: 93.5,
+      targetIdentified: 'Acúmulo de folhas secas em redemoinho de vento',
+      assertivenessReasoning: 'Dispersão aerodinâmica inconsistente com massa biológica. Algoritmo de filtragem ambiental descartou invasão.',
+      severity: 'info'
+    },
+    {
+      type: 'invasor',
+      cameraId: 'cam-01',
+      classification: 'CRITICAL_INTRUDER',
+      category: 'PERIGO REAL (INVASOR CONFIRMADO)',
+      isRealThreat: true,
+      notifiedResidents: true,
+      confidenceScore: 98.9,
+      targetIdentified: 'Homem adulto encapuzado pulando o gradil perimetral',
+      assertivenessReasoning: 'Detecção de silhueta bípede com postura agressiva e intrusão na zona virtual de restrição. Notificação imediata aos moradores e despacho para a central.',
+      severity: 'critical'
+    },
+    {
+      type: 'entregador',
+      cameraId: 'cam-02',
+      classification: 'AUTHORIZED_ACCESS',
+      category: 'VISITANTE / ENTREGADOR NA CALÇADA',
+      isRealThreat: false,
+      notifiedResidents: false,
+      confidenceScore: 97.1,
+      targetIdentified: 'Entregador identificado na calçada aguardando porteiro',
+      assertivenessReasoning: 'Permanência em área pública externa sem tentativa de transpor a clausura. Monitoramento passivo ativado sem alarme.',
+      severity: 'normal'
+    }
+  ];
+
+  // Escolhe o cenário especificado ou um aleatório
+  let chosenScenario;
+  if (type && type !== 'random') {
+    chosenScenario = simulationPool.find((item) => item.type === type) || simulationPool[0];
+  } else {
+    const randomIndex = Math.floor(Math.random() * simulationPool.length);
+    chosenScenario = simulationPool[randomIndex];
+  }
+
+  // Busca a câmera de forma assíncrona
+  const camera = await getCameraById(chosenScenario.cameraId);
+
+  // Cria o novo registro de alerta
+  const newAlert = {
+    id: `alt-${Date.now()}`,
+    cameraId: chosenScenario.cameraId,
+    cameraCode: camera ? camera.code : 'CAM-01',
+    cameraName: camera ? camera.name : 'Câmera Perimetral',
+    timestamp: new Date().toISOString(),
+    classification: chosenScenario.classification,
+    category: chosenScenario.category,
+    isRealThreat: chosenScenario.isRealThreat,
+    notifiedResidents: chosenScenario.notifiedResidents,
+    confidenceScore: chosenScenario.confidenceScore,
+    targetIdentified: chosenScenario.targetIdentified,
+    assertivenessReasoning: chosenScenario.assertivenessReasoning,
+    locationCoordinates: camera ? camera.coordinates : { lat: -23.561684, lng: -46.656139 },
+    status: chosenScenario.isRealThreat ? 'active_alert' : 'filtered_auto',
+    severity: chosenScenario.severity
+  };
+
+  // Adiciona ao início da lista de histórico
+  alerts.unshift(newAlert);
+  if (alerts.length > 30) {
+    alerts.pop();
+  }
+
+  // Atualiza a câmera correspondente de forma assíncrona
+  if (camera) {
+    await updateCameraStatus(
+      camera.id,
+      chosenScenario.isRealThreat ? 'alert' : 'online',
+      chosenScenario.isRealThreat ? 'critical' : 'normal',
+      chosenScenario.targetIdentified
+    );
+  }
+
+  return newAlert;
+}
+
+// Aliases para compatibilidade e flexibilidade
+export const getAll = getAllAlerts;
+export const getById = getAlertById;
+export const getMetrics = getAlertMetrics;
+
+export const alertService = {
+  getAll: getAllAlerts,
+  getById: getAlertById,
+  getMetrics: getAlertMetrics,
+  simulateDetection
 };
 
 export default alertService;

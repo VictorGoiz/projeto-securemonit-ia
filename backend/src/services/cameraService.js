@@ -122,20 +122,42 @@ const cameras = [
   }
 ];
 
-export const cameraService = {
-  getAll: () => cameras,
-  
-  getById: (id) => cameras.find((cam) => cam.id === id || cam.code === id),
+// Retorna a lista completa de câmeras cadastradas
+export async function getAllCameras() {
+  return cameras;
+}
 
-  updateStatus: (id, status, threatLevel = 'normal', lastDetection = null) => {
-    const cam = cameras.find((c) => c.id === id);
-    if (cam) {
-      cam.status = status;
-      cam.threatLevel = threatLevel;
-      if (lastDetection) cam.lastDetection = lastDetection;
+// Busca uma câmera específica por ID (ex: 'cam-01') ou Código (ex: 'CAM-01-NORTE')
+export async function getCameraById(id) {
+  const foundCamera = cameras.find((cam) => cam.id === id || cam.code === id);
+  return foundCamera || null;
+}
+
+// Atualiza o status operacional, nível de ameaça e última detecção da câmera
+export async function updateCameraStatus(id, status, threatLevel = 'normal', lastDetection = null) {
+  const camera = cameras.find((cam) => cam.id === id);
+  
+  if (camera) {
+    camera.status = status;
+    camera.threatLevel = threatLevel;
+    if (lastDetection) {
+      camera.lastDetection = lastDetection;
     }
-    return cam;
+    return camera;
   }
+
+  return null;
+}
+
+// Aliases para compatibilidade e flexibilidade de importação
+export const getAll = getAllCameras;
+export const getById = getCameraById;
+export const updateStatus = updateCameraStatus;
+
+export const cameraService = {
+  getAll: getAllCameras,
+  getById: getCameraById,
+  updateStatus: updateCameraStatus
 };
 
 export default cameraService;
