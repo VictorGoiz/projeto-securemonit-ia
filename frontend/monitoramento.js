@@ -25,7 +25,7 @@ console.log('[SOC Telemetria] Endpoint de API ativo:', API_BASE_URL);
 const N8N_CHAT_WEBHOOK_URL = 
   window.__N8N_CHAT_WEBHOOK_URL__ ||
   localStorage.getItem('N8N_CHAT_WEBHOOK_URL') ||
-  'https://gilmar9374.app.n8n.cloud/webhook-test/bf70ee03-67d3-47e1-b2b1-72311b78d646';
+  'https://gilmar9374.app.n8n.cloud/webhook/bf70ee03-67d3-47e1-b2b1-72311b78d646';
 
 console.log('[SOC Telemetria] Endpoint n8n Chat ativo:', N8N_CHAT_WEBHOOK_URL);
 
