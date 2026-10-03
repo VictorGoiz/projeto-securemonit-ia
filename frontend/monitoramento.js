@@ -21,6 +21,26 @@ const API_BASE_URL =
 
 console.log('[SOC Telemetria] Endpoint de API ativo:', API_BASE_URL);
 
+// Endpoint do Webhook de Chatbot no n8n (execução externa, sem uso do backend)
+const N8N_CHAT_WEBHOOK_URL = 
+  window.__N8N_CHAT_WEBHOOK_URL__ ||
+  localStorage.getItem('N8N_CHAT_WEBHOOK_URL') ||
+  'https://gilmar9374.app.n8n.cloud/webhook-test/bf70ee03-67d3-47e1-b2b1-72311b78d646';
+
+console.log('[SOC Telemetria] Endpoint n8n Chat ativo:', N8N_CHAT_WEBHOOK_URL);
+
+// Gerenciador de Sessão para persistência e memória no banco do fluxo n8n
+function getOrCreateSessionId() {
+  let sessionId = localStorage.getItem('securemonit_chat_session_id');
+  if (!sessionId) {
+    sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('securemonit_chat_session_id', sessionId);
+  }
+  return sessionId;
+}
+
 // Catálogo de Câmeras Base
 const INITIAL_CAMERAS = [
   {
@@ -269,6 +289,7 @@ const state = {
   activeFilter: 'all',
   chatHistory: [],
   isChatOpen: false,
+  sessionId: getOrCreateSessionId(),
   map: null,
   markers: {},
   unreadAlerts: 0,
@@ -905,24 +926,78 @@ async function sendChatMessage(userMessage) {
   appendBubble('user', userMessage);
   const typingId = showTypingIndicator();
 
+  // Obtém o identificador de sessão para histórico e banco no fluxo n8n
+  const sessionId = state.sessionId || getOrCreateSessionId();
+
+  console.log('[SOC Chat -> n8n] Enviando mensagem ao webhook externo:', {
+    endpoint: N8N_CHAT_WEBHOOK_URL,
+    message: userMessage,
+    sessionId: sessionId
+  });
+
   try {
-    const res = await fetch(`${API_BASE_URL}/ai/chat`, {
+    const res = await fetch(N8N_CHAT_WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userMessage, history: state.chatHistory })
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/plain, */*'
+      },
+      body: JSON.stringify({
+        message: userMessage,
+        chatInput: userMessage,
+        text: userMessage,
+        sessionId: sessionId
+      })
     });
 
     removeTypingIndicator(typingId);
 
     if (res.ok) {
-      const data = await res.json();
-      appendBubble('bot', data.data?.reply || 'Sem resposta disponível.');
+      let botReply = '';
+      const contentType = res.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        // Suporta tanto array de itens n8n [{...}] quanto objeto único {...}
+        const item = Array.isArray(data) ? (data[0] || {}) : data;
+
+        botReply = item.output ||
+                   item.response ||
+                   item.reply ||
+                   item.text ||
+                   item.message ||
+                   (item.data && (item.data.reply || item.data.output || item.data.message)) ||
+                   (typeof item === 'string' ? item : JSON.stringify(item));
+      } else {
+        botReply = await res.text();
+      }
+
+      if (!botReply || typeof botReply !== 'string' || botReply.trim() === '') {
+        botReply = 'Mensagem processada pelo fluxo do n8n, mas nenhuma resposta de texto foi retornada.';
+      }
+
+      appendBubble('bot', botReply);
     } else {
-      appendBubble('bot', getLocalSecurityReply(userMessage));
+      let errorDetail = '';
+      try {
+        const errJson = await res.json();
+        errorDetail = errJson.message || errJson.hint || '';
+      } catch (_) {
+        try { errorDetail = await res.text(); } catch (__) {}
+      }
+
+      console.warn('[n8n Webhook] Resposta não OK:', res.status, errorDetail);
+
+      if (res.status === 404 && errorDetail.includes('not registered')) {
+        appendBubble('bot', '⚠️ **Aviso n8n (Modo Teste):** O webhook de teste precisa que você clique no botão **"Execute workflow"** no painel do n8n antes de enviar a mensagem.');
+      } else {
+        appendBubble('bot', `⚠️ Não foi possível obter resposta do n8n (Status ${res.status}). ${errorDetail ? '\n*' + errorDetail + '*' : ''}`);
+      }
     }
   } catch (err) {
     removeTypingIndicator(typingId);
-    appendBubble('bot', getLocalSecurityReply(userMessage));
+    console.error('[n8n Webhook] Erro ao comunicar com fluxo:', err);
+    appendBubble('bot', '⚠️ Falha ao conectar com o webhook do n8n. Verifique se o fluxo está ativo ou se há restrições de CORS na rede.');
   }
 }
 
