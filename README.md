@@ -185,7 +185,10 @@ sistema_seguranca_monit/
     │   └── logo.png               # Logotipo da plataforma Security Devs
     ├── index.html                 # Página principal do painel SOC
     ├── monitoramento.css          # Estilização completa do dashboard corporativo
-    └── monitoramento.js           # Controlador do frontend, radar Leaflet, ciclo e chatbot
+    ├── monitoramento.js           # Controlador do frontend, radar Leaflet, ciclo e chatbot
+    ├── login.html                 # Página de login com efeito Glass e tema Enterprise SOC
+    ├── login.css                  # Estilos dinâmicos, glassmorphism e animações cibernéticas
+    └── login.js                   # Controlador de autenticação via Webhook n8n (email e codigo_acesso)
 ```
 
 ---
@@ -291,10 +294,32 @@ O backend disponibiliza endpoints organizados sob o prefixo `/api`:
 ### Passo 2: Executar o Frontend
 
 1. Com o backend em execução, navegue até a pasta `frontend`.
-2. Abra o arquivo `index.html` em seu navegador:
-   - Dê um duplo clique no arquivo `frontend/index.html`; ou
+2. Abra o arquivo `login.html` ou `index.html` em seu navegador:
+   - Dê um duplo clique no arquivo `frontend/login.html` para acessar a tela de login; ou
    - Use uma extensão como o **Live Server** no VS Code; ou
    - Execute um servidor estático simples com `npx serve frontend`.
+
+### 🔐 Autenticação via Webhook no n8n
+
+A página `login.html` conecta-se a um fluxo de automação no **n8n** para validar credenciais do operador antes de liberar o acesso ao painel SOC:
+
+1. **Payload enviado via POST:**
+   ```json
+   {
+     "email": "operador@securitydevs.com",
+     "codigo_acesso": "sua_senha_secreta"
+   }
+   ```
+2. **Variáveis obrigatórias:**
+   - `email`: Endereço de correio eletrônico do operador.
+   - `codigo_acesso`: Código ou senha de acesso.
+3. **Respostas esperadas do n8n:**
+   - **Autorizado:** Retorne `{ "success": true }` ou `{ "authenticated": true }` com status `200` para autorizar a entrada e redirecionar para `index.html`.
+   - **Negado:** Retorne `{ "authenticated": false, "message": "Código inválido" }` ou status `401`/`403`.
+4. **Configuração do Endpoint:**
+   - **Endpoint Oficial:** `https://gilmar9374.app.n8n.cloud/webhook/forms`
+   - O endpoint do n8n também pode ser alterado e testado dinamicamente na interface através do acordeão *"⚙️ Configurar Webhook n8n"*.
+   - Há também o botão *"Modo Demonstração"* para acesso imediato em ambientes de avaliação.
 3. O painel SOC carregará automaticamente os dados da API em `http://localhost:3000/api` e iniciará o radar e o ciclo de monitoramento.
 
 ---

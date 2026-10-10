@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SECURITY DEVS // Autenticação de Operador SOC</title>
+  
+  <!-- Favicon / Ícone na Aba do Navegador -->
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="shortcut icon" type="image/png" href="img/logo.png">
+  <link rel="apple-touch-icon" href="img/logo.png">
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- CSS da Página de Login -->
+  <link rel="stylesheet" href="login.css">
+</head>
+<body class="enterprise-soc login-body">
+
+  <!-- Fundo Dinâmico com Orbes Brilhantes & Efeito Mesh -->
+  <div class="dynamic-background">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+    <div class="cyber-grid-overlay"></div>
+    <div class="radar-scanline"></div>
+  </div>
+
+  <!-- Topbar Minimalista com Telemetria -->
+  <header class="login-topbar">
+    <div class="soc-brand">
+      <div class="brand-icon">
+        <img src="img/logo.png" alt="Security Devs" class="brand-logo-img">
+      </div>
+      <div class="brand-info">
+        <div class="brand-title-row">
+          <h1>SECURITY DEVS</h1>
+          <span class="badge-soc">ENTERPRISE SOC</span>
+        </div>
+        <p class="brand-subtitle">Monitoramento Inteligente & Triagem de Ameaças em Condomínios</p>
+      </div>
+    </div>
+
+    <div class="header-telemetry">
+      <div class="telemetry-pill secure-channel-pill">
+        <span class="pulsing-emerald-dot"></span>
+        <i class="fa-solid fa-lock"></i>
+        <span>Canal Seguro <strong>TLS 1.3</strong></span>
+      </div>
+
+      <div class="telemetry-pill time-pill">
+        <i class="fa-regular fa-clock"></i>
+        <span id="liveClock">00:00:00</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Container Principal Centralizado -->
+  <main class="login-container">
+    
+    <!-- Card Principal com Efeito Glassmorphism -->
+    <div class="glass-card" id="glassLoginCard">
+      
+      <!-- Linha decorativa de neon no topo do card -->
+      <div class="card-glow-bar"></div>
+
+      <!-- Cabeçalho do Card -->
+      <div class="card-header">
+        <div class="security-shield-icon">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span class="shield-ping"></span>
+        </div>
+        <h2 class="card-title">Acesso ao Sistema</h2>
+      </div>
+
+      <!-- Banner de Notificações / Erros / Sucesso -->
+      <div class="alert-box" id="alertBox" style="display: none;">
+        <div class="alert-icon" id="alertIcon">
+          <i class="fa-solid fa-circle-exclamation"></i>
+        </div>
+        <div class="alert-content">
+          <h4 id="alertTitle">Falha na Autenticação</h4>
+          <p id="alertMessage">Mensagem de detalhe sobre a validação.</p>
+        </div>
+        <button type="button" class="alert-close-btn" id="btnCloseAlert" aria-label="Fechar notificação">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Formulário de Login -->
+      <form class="login-form" id="loginForm" autocomplete="on">
+        
+        <!-- Campo: Email -->
+        <div class="form-group">
+          <label for="emailInput">
+            <i class="fa-regular fa-envelope"></i> E-mail Corporativo
+          </label>
+          <div class="input-glass-wrapper">
+            <i class="fa-solid fa-at input-icon"></i>
+            <input 
+              type="email" 
+              id="emailInput" 
+              name="email" 
+              class="glass-input" 
+              placeholder="operador@securitydevs.com" 
+              autocomplete="email"
+              required 
+            />
+          </div>
+        </div>
+
+        <!-- Campo: Código de Acesso (Senha) -->
+        <div class="form-group">
+          <label for="codigoAcessoInput">
+            <i class="fa-solid fa-key"></i> Código de Acesso
+          </label>
+          <div class="input-glass-wrapper">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input 
+              type="password" 
+              id="codigoAcessoInput" 
+              name="codigo_acesso" 
+              class="glass-input" 
+              placeholder="Digite seu código de acesso..." 
+              autocomplete="current-password"
+              required 
+            />
+            <button type="button" class="btn-toggle-visibility" id="btnTogglePassword" title="Mostrar/Ocultar Código de Acesso" tabindex="-1">
+              <i class="fa-regular fa-eye" id="eyeIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Opções Auxiliares: Lembrar Terminal -->
+        <div class="form-options">
+          <label class="remember-checkbox-label">
+            <input type="checkbox" id="rememberMe" checked>
+            <span class="custom-checkbox"></span>
+            <span class="remember-text">Lembrar deste terminal</span>
+          </label>
+        </div>
+
+        <!-- Botão de Submissão Dinâmico -->
+        <button type="submit" class="btn-submit-soc" id="btnSubmit">
+          <span class="btn-content default-content">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            <span>Autenticar no SOC</span>
+          </span>
+          <span class="btn-content loading-content" style="display: none;">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>Validando credenciais...</span>
+          </span>
+          <span class="btn-content success-content" style="display: none;">
+            <i class="fa-solid fa-shield-check"></i>
+            <span>Acesso Autorizado! Redirecionando...</span>
+          </span>
+          <div class="btn-glow-reflection"></div>
+        </button>
+
+      </form>
+
+      <!-- Rodapé do Card -->
+      <footer class="card-footer">
+        <div class="footer-telemetry-item">
+          <i class="fa-solid fa-shield-virus"></i>
+          <span>SOC Perimetral v2.4</span>
+        </div>
+        <span class="footer-dot">•</span>
+        <div class="footer-telemetry-item">
+          <i class="fa-solid fa-fingerprint"></i>
+          <span>Terminal Seguro</span>
+        </div>
+        <span class="footer-dot">•</span>
+        <div class="footer-telemetry-item">
+          <i class="fa-solid fa-microchip"></i>
+          <span>Security Devs</span>
+        </div>
+      </footer>
+
+    </div>
+
+  </main>
+
+  <!-- Script da Página de Login -->
+  <script src="login.js"></script>
+</body>
+</html>

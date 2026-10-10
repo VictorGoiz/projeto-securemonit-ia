@@ -306,6 +306,7 @@ const state = {
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
   initClock();
+  checkOperatorSession();
   setupEventListeners();
   initLeafletMap();
 
@@ -320,6 +321,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderAuditLogs();
   updateMapMarkers();
 });
+
+// Verificação de Sessão do Operador Autenticado via n8n
+function checkOperatorSession() {
+  const sessionRaw = localStorage.getItem('securemonit_auth');
+  const operatorTextEl = document.getElementById('operatorEmailText');
+  const operatorPill = document.getElementById('operatorPill');
+
+  if (sessionRaw) {
+    try {
+      const session = JSON.parse(sessionRaw);
+      if (operatorTextEl) {
+        operatorTextEl.textContent = session.email || session.operatorName || 'Operador SOC';
+        if (operatorPill) {
+          operatorPill.title = `Sessão ativa: ${session.email} (${session.level || 'SOC Nível 3'})`;
+        }
+      }
+    } catch {
+      if (operatorTextEl) operatorTextEl.textContent = 'Operador SOC';
+    }
+  } else {
+    if (operatorTextEl) {
+      operatorTextEl.innerHTML = '<a href="login.html" style="color:var(--accent-cyan);text-decoration:none;"><i class="fa-solid fa-right-to-bracket"></i> Login</a>';
+    }
+  }
+}
 
 // Relógio estilo Enterprise
 function initClock() {
