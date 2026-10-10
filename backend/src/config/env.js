@@ -1,4 +1,8 @@
-import 'dotenv/config';
+try {
+  await import('dotenv/config');
+} catch (e) {
+  // dotenv não instalado ou rodando nativamente no Node 20+ com process.env
+}
 
 export const config = {
   port: process.env.PORT || 3000,
