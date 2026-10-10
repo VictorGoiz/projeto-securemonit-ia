@@ -316,10 +316,9 @@ A página `login.html` conecta-se a um fluxo de automação no **n8n** para vali
 3. **Respostas esperadas do n8n:**
    - **Autorizado:** Retorne `{ "success": true }` ou `{ "authenticated": true }` com status `200` para autorizar a entrada e redirecionar para `index.html`.
    - **Negado:** Retorne `{ "authenticated": false, "message": "Código inválido" }` ou status `401`/`403`.
-4. **Configuração do Endpoint:**
-   - **Endpoint Oficial:** `https://gilmar9374.app.n8n.cloud/webhook/forms`
-   - O endpoint do n8n também pode ser alterado e testado dinamicamente na interface através do acordeão *"⚙️ Configurar Webhook n8n"*.
-   - Há também o botão *"Modo Demonstração"* para acesso imediato em ambientes de avaliação.
+4. **Configuração dos Endpoints:**
+   - **Endpoint de Teste (Workflow Test URL):** `https://gilmar9374.app.n8n.cloud/webhook-test/forms` *(ativo no momento)*
+   - **Endpoint de Produção:** `https://gilmar9374.app.n8n.cloud/webhook/forms`
 3. O painel SOC carregará automaticamente os dados da API em `http://localhost:3000/api` e iniciará o radar e o ciclo de monitoramento.
 
 ---

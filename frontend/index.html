@@ -60,14 +60,48 @@
       </div>
 
       <div class="telemetry-pill operator-pill" id="operatorPill" title="Operador Autenticado via n8n">
-        <i class="fa-solid fa-user-shield"></i>
-        <span id="operatorEmailText">Operador SOC</span>
+        <i class="fa-solid fa-user-shield" id="userRoleIcon"></i>
+        <div class="user-role-wrap">
+          <span id="operatorEmailText">Operador SOC</span>
+          <span class="role-badge" id="operatorRoleBadge">Operador</span>
+        </div>
         <a href="login.html?logout=true" class="logout-link-btn" title="Encerrar Sessão / Voltar ao Login">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
         </a>
       </div>
     </div>
   </header>
+
+  <!-- Banner de Notificação da Sentinela AI (Mensagem do Webhook) -->
+  <div class="sentinela-banner" id="sentinelaBanner" style="display: none;">
+    <div class="sentinela-banner-content">
+      <div class="sentinela-icon">
+        <i class="fa-solid fa-shield-cat"></i>
+      </div>
+      <div class="sentinela-text">
+        <h4 id="sentinelaTitle">Mensagem recebida</h4>
+        <p id="sentinelaMessage">Sua mensagem foi analisada pela Sentinela AI.</p>
+      </div>
+      <div class="sentinela-badge-level" id="sentinelaLevelBadge">Nível: Usuario</div>
+    </div>
+    <button type="button" class="sentinela-close-btn" id="btnCloseSentinelaBanner" aria-label="Fechar">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <!-- Barra de Ferramentas Exclusiva para Administradores / Operadores -->
+  <div class="role-control-banner" id="roleControlBanner" style="display: none;">
+    <div class="role-banner-left">
+      <span class="role-banner-icon"><i class="fa-solid fa-shield-halved"></i></span>
+      <div class="role-banner-info">
+        <strong id="roleBannerTitle">Painel de Privilégios</strong>
+        <span id="roleBannerDesc">Recursos habilitados conforme sua credencial.</span>
+      </div>
+    </div>
+    <div class="role-banner-actions" id="roleBannerActions">
+      <!-- Injetado dinamicamente -->
+    </div>
+  </div>
 
   <!-- Clean KPI Metric Cards -->
   <section class="kpi-section">
@@ -286,6 +320,247 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal de Calibração e Gerenciamento Perimetral (Exclusivo Administrador) -->
+  <div class="role-modal-backdrop" id="adminModal" style="display: none;">
+    <div class="glass-role-modal">
+      <div class="role-modal-header admin-header">
+        <div class="role-modal-title">
+          <i class="fa-solid fa-screwdriver-wrench"></i>
+          <div>
+            <h3>Console de Calibração Perimetral</h3>
+            <p>Privilégio: Administrador Root SOC</p>
+          </div>
+        </div>
+        <button class="role-modal-close" onclick="closeRoleModal('adminModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="role-modal-body">
+        <div class="admin-grid-settings">
+          <div class="admin-setting-item">
+            <label><i class="fa-solid fa-sliders"></i> Sensibilidade do Sensor Lidar / IA:</label>
+            <input type="range" min="80" max="99" value="95" class="admin-slider" id="sensorSensitivity" oninput="document.getElementById('sensVal').innerText = this.value + '%'">
+            <span class="slider-val" id="sensVal">95%</span>
+          </div>
+          <div class="admin-setting-item">
+            <label><i class="fa-solid fa-bell"></i> Nível de Alarme Sonoro na Guarita:</label>
+            <select class="admin-select" id="alarmVolume">
+              <option value="high">Alto (Sirene Máxima + Travas)</option>
+              <option value="medium" selected>Médio (Bip Tático + Notificação)</option>
+              <option value="silent">Silencioso (Apenas Registro de Auditoria)</option>
+            </select>
+          </div>
+          <div class="admin-setting-item">
+            <label><i class="fa-solid fa-fingerprint"></i> Bloqueio Perimetral Total:</label>
+            <button class="btn-admin-danger" id="btnAdminEmergencyLock" onclick="toggleEmergencyLockdown()">
+              <i class="fa-solid fa-lock"></i> <span id="lockdownText">Ativar Lockdown Perimetral</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="role-modal-footer">
+        <button class="btn-role-action admin-btn" onclick="applyAdminSettings()">Salvar Configurações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Despacho e Ocorrência Rápida (Exclusivo Operador & Administrador) -->
+  <div class="role-modal-backdrop" id="operatorDispatchModal" style="display: none;">
+    <div class="glass-role-modal">
+      <div class="role-modal-header operator-header">
+        <div class="role-modal-title">
+          <i class="fa-solid fa-bullhorn"></i>
+          <div>
+            <h3>Despacho Tático para Guarita</h3>
+            <p>Privilégio: Operador SOC & Administrador</p>
+          </div>
+        </div>
+        <button class="role-modal-close" onclick="closeRoleModal('operatorDispatchModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="role-modal-body">
+        <div class="dispatch-form">
+          <label><i class="fa-solid fa-video"></i> Selecionar Câmera / Zona:</label>
+          <select class="admin-select" id="dispatchCameraSelect">
+            <option value="CAM-01">CAM-01 Perímetro Muro Norte</option>
+            <option value="CAM-02">CAM-02 Portaria Principal</option>
+            <option value="CAM-03">CAM-03 Garagem G1 Subsolo</option>
+            <option value="CAM-04">CAM-04 Piscina & Lazer</option>
+            <option value="CAM-05">CAM-05 Gerador & Subestação</option>
+            <option value="CAM-06">CAM-06 Bosque Sul</option>
+          </select>
+
+          <label style="margin-top:12px;"><i class="fa-solid fa-comment-dots"></i> Observação Operacional:</label>
+          <textarea class="admin-textarea" id="dispatchNotes" rows="3" placeholder="Ex: Rondas adicionais solicitadas no Setor A."></textarea>
+        </div>
+      </div>
+      <div class="role-modal-footer">
+        <button class="btn-role-action operator-btn" onclick="sendOperatorDispatch()">Emitir Despacho Imediato</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 1: Notificações do Morador (Sentinela AI) -->
+  <div class="role-modal-backdrop" id="residentNotificationsModal" style="display: none;">
+    <div class="glass-role-modal modal-resident">
+      <div class="role-modal-header resident-header">
+        <div class="role-modal-title">
+          <div class="resident-avatar-icon">
+            <i class="fa-solid fa-envelope-open-text"></i>
+          </div>
+          <div>
+            <h3>Central de Notificações do Morador</h3>
+            <p>Sentinela AI • Triagem Inteligente de Alertas</p>
+          </div>
+        </div>
+        <button class="role-modal-close" onclick="closeRoleModal('residentNotificationsModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="role-modal-body">
+        <!-- Card de Resumo do E-mail e Integração -->
+        <div class="resident-email-card">
+          <div class="email-card-icon">
+            <i class="fa-solid fa-envelope-circle-check"></i>
+          </div>
+          <div class="email-card-details">
+            <span class="email-label">E-mail Cadastrado para Alertas:</span>
+            <strong class="email-address" id="modalResidentEmail">morador@condominio.com</strong>
+            <span class="email-status-tag"><i class="fa-solid fa-circle-check"></i> Canal Ativo & Criptografado</span>
+          </div>
+        </div>
+
+        <!-- Mensagem mais recente da Sentinela AI -->
+        <div class="resident-latest-msg-box" id="residentLatestMsgBox">
+          <div class="msg-box-header">
+            <span class="msg-badge"><i class="fa-solid fa-brain"></i> Sentinela AI</span>
+            <span class="msg-time" id="residentMsgTime">Hoje às 13:24</span>
+          </div>
+          <h4 id="residentMsgTitle">Mensagem recebida</h4>
+          <p id="residentMsgContent">Sua mensagem foi analisada pela Sentinela AI e a resposta foi enviada para o seu e-mail.</p>
+        </div>
+
+        <!-- Critérios de Notificação ao Morador -->
+        <div class="resident-rules-card">
+          <h5><i class="fa-solid fa-shield-halved"></i> Como funcionam as notificações no seu e-mail:</h5>
+          <div class="rule-item allowed">
+            <div class="rule-icon"><i class="fa-solid fa-bell"></i></div>
+            <div class="rule-text">
+              <strong>Ameaças Reais Triadas (Invasões)</strong>
+              <p>Envio imediato de alerta com foto, setor e acionamento da portaria.</p>
+            </div>
+          </div>
+          <div class="rule-item filtered">
+            <div class="rule-icon"><i class="fa-solid fa-bell-slash"></i></div>
+            <div class="rule-text">
+              <strong>Falsos Positivos Silenciados (Gatos, Folhas e Vento)</strong>
+              <p>Filtrados automaticamente com 98.6% de assertividade para evitar acordar os moradores.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="role-modal-footer">
+        <button class="btn-role-action resident-btn" onclick="closeRoleModal('residentNotificationsModal')">
+          <i class="fa-solid fa-check"></i> Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Status do Meu Perímetro (Sentinela AI) -->
+  <div class="role-modal-backdrop" id="residentPerimeterStatusModal" style="display: none;">
+    <div class="glass-role-modal modal-perimeter">
+      <div class="role-modal-header perimeter-header">
+        <div class="role-modal-title">
+          <div class="perimeter-avatar-icon">
+            <i class="fa-solid fa-shield-cat"></i>
+          </div>
+          <div>
+            <h3>Status do Perímetro Condominial</h3>
+            <p>Diagnóstico de Segurança • São Paulo - SP</p>
+          </div>
+        </div>
+        <button class="role-modal-close" onclick="closeRoleModal('residentPerimeterStatusModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="role-modal-body">
+        <!-- Status Geral em Destaque -->
+        <div class="perimeter-hero-status" id="perimeterHeroStatus">
+          <div class="hero-status-glow">
+            <i class="fa-solid fa-circle-check" id="perimeterHeroIcon"></i>
+          </div>
+          <div class="hero-status-info">
+            <h4 id="perimeterHeroTitle">PERÍMETRO 100% PROTEGIDO</h4>
+            <p id="perimeterHeroDesc">Todas as 6 câmeras e barreiras infravermelhas estão ativas e calibradas sem intrusões.</p>
+          </div>
+        </div>
+
+        <!-- Indicadores Rápidos -->
+        <div class="perimeter-kpis-grid">
+          <div class="perimeter-kpi-box">
+            <i class="fa-solid fa-video"></i>
+            <div>
+              <span class="kpi-num" id="modalCamCount">6 / 6</span>
+              <span class="kpi-desc">Câmeras Operacionais</span>
+            </div>
+          </div>
+          <div class="perimeter-kpi-box">
+            <i class="fa-solid fa-filter"></i>
+            <div>
+              <span class="kpi-num" id="modalFpCount">142</span>
+              <span class="kpi-desc">Alarmes Falsos Barrados</span>
+            </div>
+          </div>
+          <div class="perimeter-kpi-box">
+            <i class="fa-solid fa-bolt"></i>
+            <div>
+              <span class="kpi-num" id="modalAssertiveness">98.6%</span>
+              <span class="kpi-desc">Assertividade IA</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Setores e Saúde -->
+        <div class="perimeter-sectors-list">
+          <h5><i class="fa-solid fa-map-pin"></i> Zonas Vigiadas do Condomínio:</h5>
+          <div class="sector-row">
+            <span class="sector-badge"><span class="dot-green"></span> Setor A</span>
+            <span class="sector-name">Muro Norte & Cerca Elétrica</span>
+            <span class="sector-status">Seguro</span>
+          </div>
+          <div class="sector-row">
+            <span class="sector-badge"><span class="dot-green"></span> Setor B</span>
+            <span class="sector-name">Portaria Principal & Clausura</span>
+            <span class="sector-status">Seguro</span>
+          </div>
+          <div class="sector-row">
+            <span class="sector-badge"><span class="dot-green"></span> Setor C</span>
+            <span class="sector-name">Garagem G1 & Subsolo</span>
+            <span class="sector-status">Seguro</span>
+          </div>
+          <div class="sector-row">
+            <span class="sector-badge"><span class="dot-green"></span> Setor D</span>
+            <span class="sector-name">Piscina & Lazer</span>
+            <span class="sector-status">Seguro</span>
+          </div>
+          <div class="sector-row">
+            <span class="sector-badge"><span class="dot-green"></span> Setor E</span>
+            <span class="sector-name">Gerador & Subestação</span>
+            <span class="sector-status">Seguro</span>
+          </div>
+          <div class="sector-row">
+            <span class="sector-badge"><span class="dot-green"></span> Setor F</span>
+            <span class="sector-name">Bosque Sul & Muro Fundo</span>
+            <span class="sector-status">Seguro</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="role-modal-footer">
+        <button class="btn-role-action perimeter-btn" onclick="focusMapFromModal()">
+          <i class="fa-solid fa-location-crosshairs"></i> Abrir no Radar Tático
+        </button>
+      </div>
     </div>
   </div>
 

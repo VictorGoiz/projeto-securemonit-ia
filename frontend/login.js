@@ -3,10 +3,10 @@
  * Autenticação via Webhook n8n com payload { email, codigo_acesso }
  */
 
-// Endpoint oficial de validação no n8n
+// Endpoint de validação no n8n (Modo Teste do Workflow)
 const N8N_AUTH_WEBHOOK_URL = 
   window.__N8N_AUTH_WEBHOOK_URL__ ||
-  'https://gilmar9374.app.n8n.cloud/webhook/forms';
+  'https://gilmar9374.app.n8n.cloud/webhook-test/forms';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elementos do DOM
@@ -124,15 +124,18 @@ document.addEventListener('DOMContentLoaded', () => {
           operatorName: email.split('@')[0].toUpperCase(),
           loginTime: new Date().toISOString(),
           token: isAuthorized.token || 'soc_session_' + Date.now(),
-          level: isAuthorized.level || 'Operador SOC'
+          level: isAuthorized.level || 'Usuario',
+          titulo: isAuthorized.titulo || 'Mensagem recebida',
+          mensagem: isAuthorized.mensagem || 'Acesso validado pela Sentinela AI.'
         };
         localStorage.setItem('securemonit_auth', JSON.stringify(sessionData));
 
-        showAlert('success', 'Acesso Autorizado', 'Credenciais validadas. Redirecionando...');
+        const welcomeMsg = isAuthorized.mensagem ? `${isAuthorized.titulo || 'Sucesso'}: ${isAuthorized.mensagem}` : `Acesso como ${sessionData.level} autorizado. Redirecionando...`;
+        showAlert('success', `Acesso Autorizado (${sessionData.level})`, welcomeMsg);
 
         setTimeout(() => {
           window.location.href = 'index.html';
-        }, 1000);
+        }, 1200);
 
       } else {
         setButtonState('default');
@@ -174,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statusCode === 404) {
       return {
         success: false,
-        message: 'Endpoint de webhook não encontrado no n8n. Verifique se o fluxo está ativo.'
+        message: 'O webhook de teste não está aguardando requisições. Clique em "Listen for test event" no n8n antes de autenticar.'
       };
     }
 
@@ -183,18 +186,37 @@ document.addEventListener('DOMContentLoaded', () => {
         payload.authenticated === false ||
         payload.success === false ||
         payload.autorizado === false ||
-        payload.authorized === false
+        payload.authorized === false ||
+        payload.status === 'error' ||
+        payload.status === 'unauthorized'
       ) {
         return {
           success: false,
-          message: payload.message || payload.error || 'Código de acesso incorreto.'
+          message: payload.mensagem || payload.message || payload.error || 'Código de acesso incorreto.'
         };
+      }
+
+      // Suporta o formato específico da Sentinela AI:
+      // {"status":"ok","titulo":"Mensagem recebida","nivel":"Usuario","mensagem":"..."}
+      const rawLevel = payload.nivel || payload.level || payload.role || payload.permissao || 'Usuario';
+      
+      // Normalização de nível: 'Usuario', 'Operador', 'Administrador'
+      let normalizedLevel = 'Usuario';
+      const cleanLevel = rawLevel.toString().trim().toLowerCase();
+      if (cleanLevel.includes('admin')) {
+        normalizedLevel = 'Administrador';
+      } else if (cleanLevel.includes('operad')) {
+        normalizedLevel = 'Operador';
+      } else {
+        normalizedLevel = 'Usuario';
       }
 
       return {
         success: true,
-        token: payload.token,
-        level: payload.level || payload.role
+        token: payload.token || 'sentinela_' + Date.now(),
+        level: normalizedLevel,
+        titulo: payload.titulo || 'Autenticação Realizada',
+        mensagem: payload.mensagem || payload.message || ''
       };
     }
 

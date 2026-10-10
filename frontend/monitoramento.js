@@ -322,28 +322,376 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateMapMarkers();
 });
 
-// Verificação de Sessão do Operador Autenticado via n8n
+// ==========================================================================
+// Gerenciador de Sessão e Funcionalidades Exclusivas por Nível (Sentinela AI)
+// ==========================================================================
+let currentUserSession = {
+  email: '',
+  level: 'Usuario',
+  titulo: '',
+  mensagem: ''
+};
+
 function checkOperatorSession() {
   const sessionRaw = localStorage.getItem('securemonit_auth');
   const operatorTextEl = document.getElementById('operatorEmailText');
+  const roleBadgeEl = document.getElementById('operatorRoleBadge');
+  const userRoleIcon = document.getElementById('userRoleIcon');
   const operatorPill = document.getElementById('operatorPill');
 
   if (sessionRaw) {
     try {
       const session = JSON.parse(sessionRaw);
+      currentUserSession = session;
+      
+      const userLevel = (session.level || 'Usuario').toString().trim();
+      currentUserSession.level = userLevel;
+
       if (operatorTextEl) {
-        operatorTextEl.textContent = session.email || session.operatorName || 'Operador SOC';
-        if (operatorPill) {
-          operatorPill.title = `Sessão ativa: ${session.email} (${session.level || 'SOC Nível 3'})`;
+        operatorTextEl.textContent = session.email || session.operatorName || 'Usuário';
+      }
+
+      if (roleBadgeEl) {
+        roleBadgeEl.textContent = userLevel;
+        roleBadgeEl.className = `role-badge role-${userLevel.toLowerCase()}`;
+      }
+
+      if (userRoleIcon) {
+        if (userLevel === 'Administrador') {
+          userRoleIcon.className = 'fa-solid fa-crown';
+          userRoleIcon.style.color = '#f59e0b';
+        } else if (userLevel === 'Operador') {
+          userRoleIcon.className = 'fa-solid fa-shield-halved';
+          userRoleIcon.style.color = '#06b6d4';
+        } else {
+          userRoleIcon.className = 'fa-solid fa-user-check';
+          userRoleIcon.style.color = '#10b981';
         }
       }
-    } catch {
-      if (operatorTextEl) operatorTextEl.textContent = 'Operador SOC';
+
+      if (operatorPill) {
+        operatorPill.title = `Sessão ativa: ${session.email} | Nível: ${userLevel}`;
+      }
+
+      // Exibe banner de boas-vindas da Sentinela AI caso exista
+      showSentinelaBanner(session);
+
+      // Aplica permissões e recursos exclusivos de tela
+      applyRoleFeatures(userLevel);
+
+    } catch (e) {
+      console.warn('Falha ao ler sessão:', e);
+      applyRoleFeatures('Usuario');
     }
   } else {
+    currentUserSession.level = 'Usuario';
     if (operatorTextEl) {
       operatorTextEl.innerHTML = '<a href="login.html" style="color:var(--accent-cyan);text-decoration:none;"><i class="fa-solid fa-right-to-bracket"></i> Login</a>';
     }
+    if (roleBadgeEl) roleBadgeEl.textContent = 'Visitante';
+    applyRoleFeatures('Usuario');
+  }
+}
+
+// Banner da Sentinela AI com mensagem recebida do webhook
+function showSentinelaBanner(session) {
+  const banner = document.getElementById('sentinelaBanner');
+  const titleEl = document.getElementById('sentinelaTitle');
+  const msgEl = document.getElementById('sentinelaMessage');
+  const badgeEl = document.getElementById('sentinelaLevelBadge');
+  const btnClose = document.getElementById('btnCloseSentinelaBanner');
+
+  if (!banner) return;
+
+  if (session.mensagem || session.titulo) {
+    if (titleEl) titleEl.textContent = session.titulo || 'Mensagem da Sentinela AI';
+    if (msgEl) msgEl.textContent = session.mensagem || 'Validação concluída.';
+    if (badgeEl) badgeEl.textContent = `Nível: ${session.level || 'Usuario'}`;
+    banner.style.display = 'flex';
+  }
+
+  if (btnClose) {
+    btnClose.onclick = () => {
+      banner.style.display = 'none';
+    };
+  }
+}
+
+// Aplicação de Recursos Exclusivos por Nível
+function applyRoleFeatures(level) {
+  const normLevel = (level || 'Usuario').toLowerCase();
+  const banner = document.getElementById('roleControlBanner');
+  const bannerTitle = document.getElementById('roleBannerTitle');
+  const bannerDesc = document.getElementById('roleBannerDesc');
+  const bannerActions = document.getElementById('roleBannerActions');
+  const simGroup = document.querySelector('.sim-actions-group');
+
+  if (!banner || !bannerActions) return;
+
+  banner.style.display = 'flex';
+
+  if (normLevel === 'administrador') {
+    banner.className = 'role-control-banner banner-admin';
+    bannerTitle.innerHTML = '<i class="fa-solid fa-crown"></i> Painel Root Administrador';
+    bannerDesc.textContent = 'Acesso irrestrito: Calibração de sensores, controle de alarmes e emissão de ordens.';
+    bannerActions.innerHTML = `
+      <button class="role-btn btn-admin" onclick="openAdminModal()">
+        <i class="fa-solid fa-screwdriver-wrench"></i> Calibração Perimetral
+      </button>
+      <button class="role-btn btn-operator" onclick="openOperatorDispatchModal()">
+        <i class="fa-solid fa-bullhorn"></i> Despacho Tático
+      </button>
+      <button class="role-btn btn-export" onclick="exportAuditReportCSV()">
+        <i class="fa-solid fa-file-arrow-down"></i> Exportar Auditoria
+      </button>
+    `;
+    if (simGroup) simGroup.style.display = 'flex';
+
+  } else if (normLevel === 'operador') {
+    banner.className = 'role-control-banner banner-operador';
+    bannerTitle.innerHTML = '<i class="fa-solid fa-user-shield"></i> Estação de Operador SOC';
+    bannerDesc.textContent = 'Operações táticas: Simulações de perigo, despacho de viaturas e triagem ao vivo.';
+    bannerActions.innerHTML = `
+      <button class="role-btn btn-operator" onclick="openOperatorDispatchModal()">
+        <i class="fa-solid fa-bullhorn"></i> Emitir Despacho Guarita
+      </button>
+      <button class="role-btn btn-export" onclick="exportAuditReportCSV()">
+        <i class="fa-solid fa-list-check"></i> Relatório de Turno
+      </button>
+    `;
+    if (simGroup) simGroup.style.display = 'flex';
+
+  } else {
+    // Nível: Usuario (Morador / Visualizador)
+    banner.className = 'role-control-banner banner-usuario';
+    bannerTitle.innerHTML = '<i class="fa-solid fa-eye"></i> Modo Morador & Notificações';
+    bannerDesc.textContent = 'Visualização segura em tempo real. Notificações automáticas via Sentinela AI para o seu e-mail.';
+    bannerActions.innerHTML = `
+      <button class="role-btn btn-usuario" onclick="openResidentReportModal()">
+        <i class="fa-solid fa-envelope-open-text"></i> Notificações do Morador
+      </button>
+      <button class="role-btn btn-info-tag" onclick="showResidentInfo()">
+        <i class="fa-solid fa-shield-cat"></i> Status do Meu Perímetro
+      </button>
+    `;
+    // Usuários comuns não têm acesso à injeção de falsos alarmes/simulação
+    if (simGroup) simGroup.style.display = 'none';
+  }
+}
+
+// Botões dinâmicos dentro do card de cada câmera de acordo com o nível
+function renderRoleSpecificCardButtons(cam) {
+  const normLevel = (currentUserSession.level || 'Usuario').toLowerCase();
+
+  if (normLevel === 'administrador') {
+    return `
+      <button class="card-btn-action btn-admin-act" onclick="calibrateCamera('${cam.id}', '${cam.name}')" title="Ajuste técnico de sensibilidade">
+        <i class="fa-solid fa-sliders"></i> Calibrar
+      </button>
+    `;
+  } else if (normLevel === 'operador') {
+    return `
+      <button class="card-btn-action btn-operador-act" onclick="dispatchGuaritaForCam('${cam.id}', '${cam.name}')" title="Acionar ronda na zona da câmera">
+        <i class="fa-solid fa-person-military-pointing"></i> Ronda
+      </button>
+    `;
+  } else {
+    // Usuario / Morador
+    return `
+      <button class="card-btn-action btn-usuario-act" onclick="reportCameraIncident('${cam.id}', '${cam.name}')" title="Reportar algo incomum nesta câmera">
+        <i class="fa-solid fa-flag"></i> Notificar
+      </button>
+    `;
+  }
+}
+
+// ==========================================================================
+// Funções de Interação Exclusivas por Nível
+// ==========================================================================
+function openAdminModal() {
+  const modal = document.getElementById('adminModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function openOperatorDispatchModal() {
+  const modal = document.getElementById('operatorDispatchModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeRoleModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) modal.style.display = 'none';
+
+  // Força o Leaflet a recalcular suas dimensões evitando quebra de tiles ao fechar modais
+  if (state.map) {
+    setTimeout(() => {
+      state.map.invalidateSize();
+    }, 100);
+  }
+}
+
+function applyAdminSettings() {
+  const sens = document.getElementById('sensorSensitivity')?.value || 95;
+  const vol = document.getElementById('alarmVolume')?.value || 'medium';
+  alert(`[Administrador Root]\nSensibilidade da IA atualizada para ${sens}%.\nVolume da sirene: ${vol.toUpperCase()}.\nParâmetros gravados no controlador SOC.`);
+  closeRoleModal('adminModal');
+}
+
+let isLockdownActive = false;
+function toggleEmergencyLockdown() {
+  isLockdownActive = !isLockdownActive;
+  const text = document.getElementById('lockdownText');
+  const btn = document.getElementById('btnAdminEmergencyLock');
+  if (isLockdownActive) {
+    if (text) text.innerText = 'Lockdown ATIVO! Clique para Normalizar';
+    if (btn) btn.style.background = '#dc2626';
+    alert('🚨 LOCKDOWN ATIVADO: Todos os portões perimetrais foram bloqueados pelo Administrador.');
+  } else {
+    if (text) text.innerText = 'Ativar Lockdown Perimetral';
+    if (btn) btn.style.background = '#b91c1c';
+    alert('✅ Lockdown cancelado. Acessos liberados para moradores.');
+  }
+}
+
+function sendOperatorDispatch() {
+  const cam = document.getElementById('dispatchCameraSelect')?.value || 'CAM-01';
+  const notes = document.getElementById('dispatchNotes')?.value || 'Ronda de rotina';
+  
+  // Adiciona ao histórico do audit log
+  const newDispatchLog = {
+    id: `disp-${Date.now()}`,
+    cameraId: cam.toLowerCase(),
+    cameraCode: cam,
+    cameraName: 'Ordem de Operador SOC',
+    timestamp: new Date().toISOString(),
+    classification: 'OPERATOR_DISPATCH',
+    category: 'Despacho de Guarita',
+    isRealThreat: true,
+    notifiedResidents: false,
+    confidenceScore: 100.0,
+    targetIdentified: `Operador despachou fiscalização para ${cam}. Motivo: ${notes}`,
+    assertivenessReasoning: 'Ação executada com credencial de Operador.',
+    status: 'active_alert',
+    severity: 'critical'
+  };
+
+  state.alerts.unshift(newDispatchLog);
+  renderAuditLogs();
+  
+  alert(`📢 Despacho transmitido com sucesso para a guarita e rádio dos vigilantes no setor ${cam}!`);
+  closeRoleModal('operatorDispatchModal');
+}
+
+function exportAuditReportCSV() {
+  let csv = 'ID,CAMERA,CLASSIFICACAO,HORARIO,ASSERTIVIDADE,DETALHES\n';
+  state.alerts.forEach(a => {
+    csv += `"${a.id}","${a.cameraCode}","${a.category}","${a.timestamp}","${a.confidenceScore}%","${a.targetIdentified}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `auditoria_soc_${Date.now()}.csv`;
+  a.click();
+}
+
+function openResidentReportModal() {
+  const modal = document.getElementById('residentNotificationsModal');
+  const emailEl = document.getElementById('modalResidentEmail');
+  const titleEl = document.getElementById('residentMsgTitle');
+  const contentEl = document.getElementById('residentMsgContent');
+  const timeEl = document.getElementById('residentMsgTime');
+
+  if (emailEl) {
+    emailEl.textContent = currentUserSession.email || 'morador@condominio.com';
+  }
+
+  if (titleEl && currentUserSession.titulo) {
+    titleEl.textContent = currentUserSession.titulo;
+  }
+
+  if (contentEl && currentUserSession.mensagem) {
+    contentEl.textContent = currentUserSession.mensagem;
+  }
+
+  if (timeEl) {
+    const now = new Date();
+    timeEl.textContent = `Hoje às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function showResidentInfo() {
+  const modal = document.getElementById('residentPerimeterStatusModal');
+  const camCountEl = document.getElementById('modalCamCount');
+  const fpCountEl = document.getElementById('modalFpCount');
+  const assertEl = document.getElementById('modalAssertiveness');
+  const heroStatus = document.getElementById('perimeterHeroStatus');
+  const heroTitle = document.getElementById('perimeterHeroTitle');
+  const heroDesc = document.getElementById('perimeterHeroDesc');
+  const heroIcon = document.getElementById('perimeterHeroIcon');
+
+  if (camCountEl) camCountEl.textContent = `${state.cameras.length} / ${state.cameras.length}`;
+  if (fpCountEl) fpCountEl.textContent = state.metrics.falsePositivesFiltered || 142;
+  if (assertEl) assertEl.textContent = state.metrics.assertivenessRate || '98.6%';
+
+  const hasCritical = state.cameras.some(c => c.threatLevel === 'critical');
+
+  if (hasCritical) {
+    if (heroStatus) heroStatus.className = 'perimeter-hero-status status-alert';
+    if (heroTitle) heroTitle.textContent = 'ALERTA: ATIVIDADE SUSPEITA DETECTADA';
+    if (heroDesc) heroDesc.textContent = 'A Sentinela AI detectou tentativa de invasão perimetral e acionou a portaria imediatamente.';
+    if (heroIcon) heroIcon.className = 'fa-solid fa-triangle-exclamation';
+  } else {
+    if (heroStatus) heroStatus.className = 'perimeter-hero-status status-secure';
+    if (heroTitle) heroTitle.textContent = 'PERÍMETRO 100% PROTEGIDO';
+    if (heroDesc) heroDesc.textContent = 'Todas as 6 câmeras e sensores infravermelhos estão ativos e calibrados sem intrusões.';
+    if (heroIcon) heroIcon.className = 'fa-solid fa-circle-check';
+  }
+
+  if (modal) modal.style.display = 'flex';
+}
+
+function focusMapFromModal() {
+  closeRoleModal('residentPerimeterStatusModal');
+  const mapSection = document.getElementById('tacticalMapSection');
+  if (mapSection) {
+    if (mapSection.classList.contains('collapsed')) {
+      mapSection.classList.remove('collapsed');
+    }
+    
+    setTimeout(() => {
+      if (state.map) {
+        state.map.invalidateSize();
+        state.map.setView([-23.562100, -46.655600], 17);
+      }
+    }, 150);
+
+    setTimeout(() => {
+      mapSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 180);
+  }
+}
+
+function calibrateCamera(camId, camName) {
+  const newSens = prompt(`[Admin] Digite a nova sensibilidade para ${camName} (80% a 99%):`, '96');
+  if (newSens) {
+    alert(`Câmera ${camName} calibrada com ${newSens}% de assertividade na viga perimetral.`);
+  }
+}
+
+function dispatchGuaritaForCam(camId, camName) {
+  const confirmDispatch = confirm(`[Operador] Confirmar envio de fiscalização física para ${camName}?`);
+  if (confirmDispatch) {
+    sendOperatorDispatch();
+  }
+}
+
+function reportCameraIncident(camId, camName) {
+  const note = prompt(`[Morador] Descreva o que você notou na câmera ${camName}:`);
+  if (note) {
+    alert(`Obrigado! Sua notificação foi enviada para triagem da Sentinela AI. A equipe foi comunicada.`);
   }
 }
 
@@ -779,7 +1127,7 @@ function renderCameras() {
           </div>
         </div>
 
-        <!-- Card Actions -->
+        <!-- Card Actions com Privilégios por Nível -->
         <div class="pro-card-actions">
           <button class="card-btn-action" onclick="focusCameraOnMap('${cam.id}')">
             <i class="fa-solid fa-map-location-dot"></i> Ver no Mapa
@@ -787,6 +1135,7 @@ function renderCameras() {
           <button class="card-btn-action btn-ai-chat" onclick="askAiAboutCamera('${cam.name}')">
             <i class="fa-solid fa-robot"></i> Consultar IA
           </button>
+          ${renderRoleSpecificCardButtons(cam)}
         </div>
       </article>
     `;
