@@ -6,7 +6,7 @@
 // Endpoint de validação no n8n (Modo Teste do Workflow)
 const N8N_AUTH_WEBHOOK_URL = 
   window.__N8N_AUTH_WEBHOOK_URL__ ||
-  'https://gilmar9374.app.n8n.cloud/webhook-test/forms';
+  'https://gilmar9374.app.n8n.cloud/webhook/forms';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elementos do DOM
